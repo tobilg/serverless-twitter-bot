@@ -1,0 +1,155 @@
+service: serverless-twitter-bot
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-pseudo-parameters
+  - serverless-iam-roles-per-function
+  - serverless-prune-plugin
+  - serverless-webpack
+
+custom:
+
+  # DynamoDB settings
+  dynamodb:
+    tableName: 'repo-releases-table-${self:provider.stage}'
+
+  # SNS
+  sns:
+    history:
+      topicName: 'repo-releases-history-queries'
+    recurrent:
+      topicName: 'repo-releases-recurrent-queries'
+
+  # Twitter
+  twitter:
+    consumerKey: '${env:TWITTER_CONSUMER_KEY}'
+    consumerSecret: '${env:TWITTER_CONSUMER_SECRET}'
+    accessToken: '${env:TWITTER_ACCESS_TOKEN}'
+    accessTokenSecret: '${env:TWITTER_ACCESS_TOKEN_SECRET}'
+
+  # GitHub
+  github:
+    accessToken: '${env:GITHUB_ACCESS_TOKEN}'
+  
+  # Webpack settings
+  webpack:
+    webpackConfig: 'webpack.config.serverless.js'
+
+  # Prune plugin
+  prune:
+    automatic: true
+    number: 3
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'prd'}
+  logRetentionInDays: 30
+  # Deployment bucket settings
+  deploymentBucket:
+    name: 'serverless-deployment-bucket-562552715877'
+    serverSideEncryption: AES256
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1' # Enable HTTP keep-alive connections for the AWS SDK
+    TABLE_NAME: '${self:custom.dynamodb.tableName}'
+    HISTORY_REPO_QUERIES_TOPIC_ARN: '#{HistoryQueriesTopic}'
+    RECURRENT_REPO_QUERIES_TOPIC_ARN: '#{RecurrentQueriesTopic}'
+    STAGE: '${self:provider.stage}'
+    LOG_LEVEL: 'debug'
+
+functions:
+
+  # Trigger initial load for repo history/version data
+  createHistoryQueries:
+    handler: src/createHistoryQueries.handler
+    memorySize: 256
+    timeout: 10
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - sns:Publish
+        Resource: '#{HistoryQueriesTopic}'
+
+  # Create recurring repo queries
+  createRecurringQueries:
+    handler: src/createRecurrentQueries.handler
+    memorySize: 256
+    timeout: 10
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - sns:Publish
+        Resource: '#{RecurrentQueriesTopic}'
+    events:
+       - schedule: rate(10 minutes)
+
+  # Run recurrent repo queries (one execution per repo)
+  runRecurrentQueries:
+    handler: src/runRecurrentQueries.handler
+    memorySize: 512
+    timeout: 120
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:BatchWriteItem
+          - dynamodb:Query
+        Resource: '#{DataTable.Arn}'
+    environment:
+      GITHUB_ACCESS_TOKEN: '${self:custom.github.accessToken}'
+    events:
+      - sns:
+          arn: '#{RecurrentQueriesTopic}'
+
+  # Run history repo queries
+  runHistoryQueries:
+    handler: src/runHistoryQueries.handler
+    memorySize: 1024
+    timeout: 300
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:BatchWriteItem
+          - dynamodb:Query
+        Resource: '#{DataTable.Arn}'
+    environment:
+      GITHUB_ACCESS_TOKEN: '${self:custom.github.accessToken}'
+    events:
+      - sns:
+          arn: '#{HistoryQueriesTopic}'
+
+  # Tweet version updates
+  tweetUpdates:
+    handler: src/tweetUpdates.handler
+    memorySize: 512
+    timeout: 10
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:GetRecords
+          - dynamodb:GetShardIterator
+          - dynamodb:DescribeStream
+          - dynamodb:ListStreams
+        Resource: '#{DataTable.StreamArn}'
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:Query
+        Resource: '#{DataTable.Arn}'
+    environment:
+      TWITTER_CONSUMER_KEY: '${self:custom.twitter.consumerKey}'
+      TWITTER_CONSUMER_SECRET: '${self:custom.twitter.consumerSecret}'
+      TWITTER_ACCESS_TOKEN: '${self:custom.twitter.accessToken}'
+      TWITTER_ACCESS_TOKEN_SECRET: '${self:custom.twitter.accessTokenSecret}'
+    events:
+      - stream:
+          type: dynamodb
+          arn: # Workaround below, plugin throws error
+            Fn::GetAtt: [DataTable, StreamArn]
+
+resources:
+  - ${file(resources/dynamodb-table.yml)}
+  - ${file(resources/sns.yml)}
+
+package:
+  individually: true

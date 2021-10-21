@@ -1,0 +1,42 @@
+{
+  "name": "serverless-twitter-bot",
+  "version": "0.1.0",
+  "description": "A Serverless Twitter bot that sends tweets open GitHub repository releases",
+  "scripts": {
+    "cfn-lint": "cfn-lint .serverless/cloudformation-template-update-stack.json",
+    "package": "sls package",
+    "qa": "npm run package && npm run cfn-lint",
+    "deploy": "sls deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:tobilg/serverless-twitter-bot.git"
+  },
+  "author": "TobiLG <tobilg@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tobilg/serverless-twitter-bot/issues"
+  },
+  "homepage": "https://github.com/tobilg/serverless-twitter-bot#readme",
+  "devDependencies": {
+    "@babel/core": "^7.12.3",
+    "@babel/node": "^7.12.6",
+    "@babel/plugin-proposal-optional-chaining": "^7.12.7",
+    "@babel/plugin-transform-runtime": "^7.12.1",
+    "@babel/preset-env": "^7.12.1",
+    "babel-loader": "^8.1.0",
+    "serverless-iam-roles-per-function": "next",
+    "serverless-prune-plugin": "^1.4.3",
+    "serverless-pseudo-parameters": "^2.5.0",
+    "serverless-webpack": "^5.3.5",
+    "webpack": "^5.11.0"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.12.5",
+    "@octokit/graphql": "^4.8.0",
+    "aws-sdk": "2.712.0",
+    "bunyan": "^1.8.15",
+    "serverless-dotenv-plugin": "^3.10.0",
+    "twit": "^2.2.11"
+  }
+}

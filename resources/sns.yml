@@ -1,0 +1,12 @@
+Resources:
+  HistoryQueriesTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      TopicName: '${self:custom.sns.history.topicName}'
+      FifoTopic: False
+
+  RecurrentQueriesTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      TopicName: '${self:custom.sns.recurrent.topicName}'
+      FifoTopic: False
