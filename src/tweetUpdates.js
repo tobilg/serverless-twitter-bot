@@ -50,7 +50,7 @@ export const handler = async (event, context) => {
   const tweets = newRepoVersions.filter((repoVersion) => repoVersion.isRecurrentQuery).map((repoVersion) => {
     const message = `${repoVersion.description} has a new ${repoVersion.gitHubDataType.substring(0, repoVersion.gitHubDataType.length - 1)} "${repoVersion.name}", published at ${repoVersion.publishedAt.replace('T', ' ').replace('Z', ' (UTC)')}\n\n${repoVersion.url}`;
     requestLogger.debug({ message });
-    return Promise.resolve(); //postTweet(message);
+    return postTweet(message);
   });
 
   try {

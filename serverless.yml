@@ -46,10 +46,6 @@ provider:
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'prd'}
   logRetentionInDays: 30
-  # Deployment bucket settings
-  deploymentBucket:
-    name: 'serverless-deployment-bucket-562552715877'
-    serverSideEncryption: AES256
   environment:
     AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1' # Enable HTTP keep-alive connections for the AWS SDK
     TABLE_NAME: '${self:custom.dynamodb.tableName}'
